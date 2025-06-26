@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDE Rating Point Flow Across Federations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; }
+        .container { background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); padding: 2rem; margin: 2rem; width: 90%; max-width: 1200px; text-align: center; }
+        h1 { font-size: 1.875rem; font-weight: 600; color: #333; margin-bottom: 1rem; }
+        p { color: #555; margin-bottom: 0.5rem; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 0.5rem; }
+        .legend-color-box { width: 20px; height: 20px; border-radius: 4px; margin-right: 8px; }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 8px;
+            font: 12px Inter;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .links line {
+            stroke: #999;
+            stroke-opacity: 0.6;
+        }
+        .nodes circle {
+            stroke: #fff;
+            stroke-width: 1.5px;
+        }
+        text {
+            font-size: 10px;
+            fill: #333;
+            pointer-events: none; /* Make text not interfere with mouse events on nodes */
+            font-weight: 500;
+        }
+        .gain-node { fill: #4CAF50; /* Green */ }
+        .loss-node { fill: #F44336; /* Red */ }
+        .pool-node { fill: #2196F3; /* Blue */ }
+        .gain-link { stroke: #4CAF50; /* Green */ }
+        .loss-link { stroke: #F44336; /* Red */ }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="container">
+        <h1>FIDE Rating Point Flow Across Federations</h1>
+        <p>This interactive visualization illustrates the net flow of rating points (extracted or lost) for federations with at least 1,000 players between Mar24 and Jun25.</p>
+        <p>Drag nodes to rearrange. Zoom and pan using mouse wheel/drag. The deflation in this period is due to the extremely low injection point of new players.</p>
+        <div class="flex justify-center gap-6 mt-4 mb-6">
+            <div class="legend-item">
+                <div class="legend-color-box pool-node"></div>
+                <span>FIDE Rating Pool</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color-box gain-node"></div>
+                <span>Net Point Extractor (Gains points, green)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color-box loss-node"></div>
+                <span>Net Point Donor (Loses points, red)</span>
+            </div>
+        </div>
+        <svg id="network-graph" width="100%" height="600"></svg>
+    </div>
+
+    <script>
+        const width = document.getElementById('network-graph').clientWidth;
+        const height = 600;
+
+        const nodesData = [{"id": "FIDE Pool", "group": 0, "value": 0, "type": "pool"}, {"id": "ARG", "group": 1, "value": 6263.0, "type": "federation"}, {"id": "AUS", "group": 1, "value": 9763.0, "type": "federation"}, {"id": "AUT", "group": 2, "value": 4138.0, "type": "federation"}, {"id": "BAN", "group": 2, "value": 2481.0, "type": "federation"}, {"id": "BEL", "group": 1, "value": 133.0, "type": "federation"}, {"id": "BRA", "group": 1, "value": 2274.0, "type": "federation"}, {"id": "CAN", "group": 1, "value": 8902.0, "type": "federation"}, {"id": "CHI", "group": 1, "value": 5781.0, "type": "federation"}, {"id": "CHN", "group": 1, "value": 28662.0, "type": "federation"}, {"id": "COL", "group": 1, "value": 7032.0, "type": "federation"}, {"id": "CRO", "group": 1, "value": 7919.0, "type": "federation"}, {"id": "CZE", "group": 1, "value": 7711.0, "type": "federation"}, {"id": "DEN", "group": 2, "value": 4521.0, "type": "federation"}, {"id": "EGY", "group": 1, "value": 4445.0, "type": "federation"}, {"id": "ENG", "group": 1, "value": 11424.0, "type": "federation"}, {"id": "ESP", "group": 1, "value": 41169.0, "type": "federation"}, {"id": "FRA", "group": 1, "value": 99713.0, "type": "federation"}, {"id": "GER", "group": 1, "value": 1105.0, "type": "federation"}, {"id": "GRE", "group": 1, "value": 30641.0, "type": "federation"}, {"id": "HUN", "group": 1, "value": 3046.0, "type": "federation"}, {"id": "IND", "group": 1, "value": 268358.0, "type": "federation"}, {"id": "IRI", "group": 1, "value": 37035.0, "type": "federation"}, {"id": "ISR", "group": 1, "value": 16061.0, "type": "federation"}, {"id": "ITA", "group": 1, "value": 22770.0, "type": "federation"}, {"id": "KAZ", "group": 1, "value": 42827.0, "type": "federation"}, {"id": "MAS", "group": 1, "value": 13191.0, "type": "federation"}, {"id": "MEX", "group": 1, "value": 8542.0, "type": "federation"}, {"id": "NED", "group": 2, "value": 2246.0, "type": "federation"}, {"id": "NOR", "group": 1, "value": 10992.0, "type": "federation"}, {"id": "PER", "group": 1, "value": 33323.0, "type": "federation"}, {"id": "PHI", "group": 1, "value": 9063.0, "type": "federation"}, {"id": "POL", "group": 1, "value": 93708.0, "type": "federation"}, {"id": "POR", "group": 1, "value": 5718.0, "type": "federation"}, {"id": "ROU", "group": 1, "value": 26424.0, "type": "federation"}, {"id": "RSA", "group": 1, "value": 7881.0, "type": "federation"}, {"id": "RUS", "group": 1, "value": 99055.0, "type": "federation"}, {"id": "SRB", "group": 2, "value": 14953.0, "type": "federation"}, {"id": "SRI", "group": 1, "value": 44838.0, "type": "federation"}, {"id": "SUI", "group": 2, "value": 2162.0, "type": "federation"}, {"id": "SVK", "group": 1, "value": 2083.0, "type": "federation"}, {"id": "SWE", "group": 1, "value": 1388.0, "type": "federation"}, {"id": "TUR", "group": 1, "value": 56751.0, "type": "federation"}, {"id": "UKR", "group": 1, "value": 27144.0, "type": "federation"}, {"id": "USA", "group": 1, "value": 37015.0, "type": "federation"}, {"id": "VEN", "group": 1, "value": 6082.0, "type": "federation"}];
+        const linksData = [{"source": "FIDE Pool", "target": "ARG", "value": 6263.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "AUS", "value": 9763.0, "type": "extracted"}, {"source": "AUT", "target": "FIDE Pool", "value": 4138.0, "type": "donated"}, {"source": "BAN", "target": "FIDE Pool", "value": 2481.0, "type": "donated"}, {"source": "FIDE Pool", "target": "BEL", "value": 133.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "BRA", "value": 2274.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CAN", "value": 8902.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CHI", "value": 5781.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CHN", "value": 28662.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "COL", "value": 7032.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CRO", "value": 7919.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CZE", "value": 7711.0, "type": "extracted"}, {"source": "DEN", "target": "FIDE Pool", "value": 4521.0, "type": "donated"}, {"source": "FIDE Pool", "target": "EGY", "value": 4445.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ENG", "value": 11424.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ESP", "value": 41169.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "FRA", "value": 99713.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "GER", "value": 1105.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "GRE", "value": 30641.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "HUN", "value": 3046.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "IND", "value": 268358.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "IRI", "value": 37035.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ISR", "value": 16061.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ITA", "value": 22770.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "KAZ", "value": 42827.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "MAS", "value": 13191.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "MEX", "value": 8542.0, "type": "extracted"}, {"source": "NED", "target": "FIDE Pool", "value": 2246.0, "type": "donated"}, {"source": "FIDE Pool", "target": "NOR", "value": 10992.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "PER", "value": 33323.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "PHI", "value": 9063.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "POL", "value": 93708.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "POR", "value": 5718.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ROU", "value": 26424.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "RSA", "value": 7881.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "RUS", "value": 99055.0, "type": "extracted"}, {"source": "SRB", "target": "FIDE Pool", "value": 14953.0, "type": "donated"}, {"source": "FIDE Pool", "target": "SRI", "value": 44838.0, "type": "extracted"}, {"source": "SUI", "target": "FIDE Pool", "value": 2162.0, "type": "donated"}, {"source": "FIDE Pool", "target": "SVK", "value": 2083.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "SWE", "value": 1388.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "TUR", "value": 56751.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "UKR", "value": 27144.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "USA", "value": 37015.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "VEN", "value": 6082.0, "type": "extracted"}];
+
+        const svg = d3.select("#network-graph")
+            .attr("viewBox", [0, 0, width, height]);
+
+        // Add zoom and pan functionality
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .on("zoom", function(event) {
+                g.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        const g = svg.append("g"); // Group for all graph elements to apply zoom/pan
+
+        const simulation = d3.forceSimulation(nodesData)
+            .force("link", d3.forceLink(linksData).id(function(d) { return d.id; }).distance(150))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(function(d) { return d.radius + 5; })); // Prevent node overlap
+
+        // Arrowhead definition
+        svg.append("defs").selectAll("marker")
+            .data(["extracted", "donated"]) // Types of links
+            .enter().append("marker")
+            .attr("id", function(d) { return "arrow-" + d; })
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 15) // Adjusted to point towards the circle edge
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", function(d) { return d === "extracted" ? "#4CAF50" : "#F44336"; }); // Color arrows based on flow type
+
+        const link = g.append("g")
+            .attr("class", "links")
+            .selectAll("line")
+            .data(linksData)
+            .enter().append("line")
+            .attr("stroke-width", function(d) { return Math.max(1, Math.sqrt(d.value) / 100); }) // Scale stroke width by value
+            .attr("class", function(d) { return d.type === "extracted" ? "gain-link" : "loss-link"; }) // Apply class for color
+            .attr("marker-end", function(d) { return "url(#arrow-" + d.type + ")"; }); // Add arrow marker
+
+        const node = g.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(nodesData)
+            .enter().append("circle")
+            .attr("r", function(d) { return d.type === 'pool' ? 20 : Math.max(5, Math.sqrt(d.value) / 5); }) // Size by value or fixed for pool
+            .attr("fill", function(d) {
+                if (d.type === 'pool') return '#2196F3'; // Blue for FIDE Pool
+                return d.group === 1 ? '#4CAF50' : '#F44336'; // Green for gainers, Red for losers
+            })
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        // Add text labels to nodes
+        const labels = g.append("g")
+            .attr("class", "labels")
+            .selectAll("text")
+            .data(nodesData)
+            .enter().append("text")
+            .attr("dx", 12)
+            .attr("dy", ".35em")
+            .text(function(d) { return d.id; })
+            .attr("x", function(d) { return d.x + (d.type === 'pool' ? 25 : Math.max(5, Math.sqrt(d.value) / 5) + 5); }) // Offset label
+            .attr("y", function(d) { return d.y; });
+
+        // Tooltip
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        node.on("mouseover", function(event, d) {
+            tooltip.transition()
+                .duration(200)
+                .style("opacity", .9);
+            let tooltip_html = "<strong>" + d.id + "</strong><br>";
+            if (d.type === 'federation') {
+                const net_change_sign = d.value > 0 ? '+' : '';
+                tooltip_html += "Net Change: " + net_change_sign + d.value.toLocaleString() + " points";
+            } else {
+                tooltip_html += "Central FIDE Rating Pool";
+            }
+            tooltip.html(tooltip_html)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style("opacity", 0);
+        });
+
+        simulation.on("tick", function() {
+            link
+                .attr("x1", function(d) { return d.source.x; })
+                .attr("y1", function(d) { return d.source.y; })
+                .attr("x2", function(d) { return d.target.x; })
+                .attr("y2", function(d) { return d.target.y; });
+
+            node
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; });
+            
+            labels
+                .attr("x", function(d) { return d.x + (d.type === 'pool' ? 25 : Math.max(5, Math.sqrt(d.value) / 5) + 5); })
+                .attr("y", function(d) { return d.y; });
+        });
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Handle window resize to make SVG responsive
+        window.addEventListener('resize', function() {
+            const newWidth = document.getElementById('network-graph').clientWidth;
+            svg.attr("width", newWidth).attr("viewBox", [0, 0, newWidth, height]);
+            simulation.force("center", d3.forceCenter(newWidth / 2, height / 2)).alpha(0.3).restart();
+            // Recalculate node positions and restart simulation to adapt to new width
+            node.attr("cx", function(d) { return d.x; }).attr("cy", function(d) { return d.y; });
+            link.attr("x1", function(d) { return d.source.x; }).attr("y1", function(d) { return d.source.y; }).attr("x2", function(d) { return d.target.x; }).attr("y2", function(d) { return d.target.y; });
+            labels.attr("x", function(d) { return d.x; }).attr("y", function(d) { return d.y; });
+        });
+
+    </script>
+</body>
+</html>
