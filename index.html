@@ -16,16 +16,17 @@
         .legend-color-box { width: 20px; height: 20px; border-radius: 4px; margin-right: 8px; }
         .tooltip {
             position: absolute;
-            text-align: center;
-            padding: 8px;
+            text-align: left;
+            padding: 12px;
             font: 12px Inter;
-            background: lightsteelblue;
-            border: 0px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ddd;
             border-radius: 8px;
             pointer-events: none;
             opacity: 0;
             color: #333;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 300px;
         }
         .links line {
             stroke: #999;
@@ -33,38 +34,47 @@
         }
         .nodes circle {
             stroke: #fff;
-            stroke-width: 1.5px;
+            stroke-width: 2px;
         }
         text {
             font-size: 10px;
             fill: #333;
-            pointer-events: none; /* Make text not interfere with mouse events on nodes */
+            pointer-events: none;
             font-weight: 500;
         }
-        .gain-node { fill: #4CAF50; /* Green */ }
-        .loss-node { fill: #F44336; /* Red */ }
-        .pool-node { fill: #2196F3; /* Blue */ }
-        .gain-link { stroke: #4CAF50; /* Green */ }
-        .loss-link { stroke: #F44336; /* Red */ }
+        .pool-node { fill: #2196F3; }
+        .gain-link { stroke: #4CAF50; }
+        .loss-link { stroke: #F44336; }
+        .color-legend {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1rem 0;
+            gap: 1rem;
+        }
+        .color-scale {
+            width: 200px;
+            height: 20px;
+            background: linear-gradient(to right, #8B0000, #FF0000, #FFA500, #FFFF00, #90EE90, #008000, #006400);
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-4">
     <div class="container">
         <h1>FIDE Rating Point Flow Across Federations</h1>
-        <p>This interactive visualization illustrates the net flow of rating points (extracted or lost) for federations with at least 1,000 players between Mar24 and Jun25.</p>
-        <p>Drag nodes to rearrange. Zoom and pan using mouse wheel/drag. The deflation in this period is due to the extremely low injection point of new players.</p>
+        <p>Node size represents number of active players. Color intensity shows rating points gained/lost per game played.</p>
+        <p>Drag nodes to rearrange. Zoom and pan using mouse wheel/drag. Hover for detailed statistics.</p>
+        <div class="color-legend">
+            <span>Big Losses</span>
+            <div class="color-scale"></div>
+            <span>Big Gains</span>
+        </div>
         <div class="flex justify-center gap-6 mt-4 mb-6">
             <div class="legend-item">
                 <div class="legend-color-box pool-node"></div>
                 <span>FIDE Rating Pool</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color-box gain-node"></div>
-                <span>Net Point Extractor (Gains points, green)</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color-box loss-node"></div>
-                <span>Net Point Donor (Loses points, red)</span>
             </div>
         </div>
         <svg id="network-graph" width="100%" height="600"></svg>
@@ -74,8 +84,19 @@
         const width = document.getElementById('network-graph').clientWidth;
         const height = 600;
 
-        const nodesData = [{"id": "FIDE Pool", "group": 0, "value": 0, "type": "pool"}, {"id": "ARG", "group": 1, "value": 6263.0, "type": "federation"}, {"id": "AUS", "group": 1, "value": 9763.0, "type": "federation"}, {"id": "AUT", "group": 2, "value": 4138.0, "type": "federation"}, {"id": "BAN", "group": 2, "value": 2481.0, "type": "federation"}, {"id": "BEL", "group": 1, "value": 133.0, "type": "federation"}, {"id": "BRA", "group": 1, "value": 2274.0, "type": "federation"}, {"id": "CAN", "group": 1, "value": 8902.0, "type": "federation"}, {"id": "CHI", "group": 1, "value": 5781.0, "type": "federation"}, {"id": "CHN", "group": 1, "value": 28662.0, "type": "federation"}, {"id": "COL", "group": 1, "value": 7032.0, "type": "federation"}, {"id": "CRO", "group": 1, "value": 7919.0, "type": "federation"}, {"id": "CZE", "group": 1, "value": 7711.0, "type": "federation"}, {"id": "DEN", "group": 2, "value": 4521.0, "type": "federation"}, {"id": "EGY", "group": 1, "value": 4445.0, "type": "federation"}, {"id": "ENG", "group": 1, "value": 11424.0, "type": "federation"}, {"id": "ESP", "group": 1, "value": 41169.0, "type": "federation"}, {"id": "FRA", "group": 1, "value": 99713.0, "type": "federation"}, {"id": "GER", "group": 1, "value": 1105.0, "type": "federation"}, {"id": "GRE", "group": 1, "value": 30641.0, "type": "federation"}, {"id": "HUN", "group": 1, "value": 3046.0, "type": "federation"}, {"id": "IND", "group": 1, "value": 268358.0, "type": "federation"}, {"id": "IRI", "group": 1, "value": 37035.0, "type": "federation"}, {"id": "ISR", "group": 1, "value": 16061.0, "type": "federation"}, {"id": "ITA", "group": 1, "value": 22770.0, "type": "federation"}, {"id": "KAZ", "group": 1, "value": 42827.0, "type": "federation"}, {"id": "MAS", "group": 1, "value": 13191.0, "type": "federation"}, {"id": "MEX", "group": 1, "value": 8542.0, "type": "federation"}, {"id": "NED", "group": 2, "value": 2246.0, "type": "federation"}, {"id": "NOR", "group": 1, "value": 10992.0, "type": "federation"}, {"id": "PER", "group": 1, "value": 33323.0, "type": "federation"}, {"id": "PHI", "group": 1, "value": 9063.0, "type": "federation"}, {"id": "POL", "group": 1, "value": 93708.0, "type": "federation"}, {"id": "POR", "group": 1, "value": 5718.0, "type": "federation"}, {"id": "ROU", "group": 1, "value": 26424.0, "type": "federation"}, {"id": "RSA", "group": 1, "value": 7881.0, "type": "federation"}, {"id": "RUS", "group": 1, "value": 99055.0, "type": "federation"}, {"id": "SRB", "group": 2, "value": 14953.0, "type": "federation"}, {"id": "SRI", "group": 1, "value": 44838.0, "type": "federation"}, {"id": "SUI", "group": 2, "value": 2162.0, "type": "federation"}, {"id": "SVK", "group": 1, "value": 2083.0, "type": "federation"}, {"id": "SWE", "group": 1, "value": 1388.0, "type": "federation"}, {"id": "TUR", "group": 1, "value": 56751.0, "type": "federation"}, {"id": "UKR", "group": 1, "value": 27144.0, "type": "federation"}, {"id": "USA", "group": 1, "value": 37015.0, "type": "federation"}, {"id": "VEN", "group": 1, "value": 6082.0, "type": "federation"}];
+        const nodesData = [{"id": "FIDE Pool", "group": 0, "value": 0, "type": "pool"}, {"id": "ARG", "group": 1, "value": 6263.0, "type": "federation", "total_players": 2328, "total_games_played": 48170.0, "total_rating_gained": 41404.0, "total_rating_lost": 35141.0, "net_change": 6263.0, "u19_players": 589, "players_20_38": 824, "players_39_plus": 915, "points_per_game": 0.13001868382810877}, {"id": "AUS", "group": 1, "value": 9763.0, "type": "federation", "total_players": 1916, "total_games_played": 47401.0, "total_rating_gained": 49287.0, "total_rating_lost": 39524.0, "net_change": 9763.0, "u19_players": 729, "players_20_38": 543, "players_39_plus": 644, "points_per_game": 0.20596611885825195}, {"id": "AUT", "group": 2, "value": 4138.0, "type": "federation", "total_players": 3010, "total_games_played": 48146.0, "total_rating_gained": 39706.0, "total_rating_lost": 43844.0, "net_change": -4138.0, "u19_players": 324, "players_20_38": 761, "players_39_plus": 1925, "points_per_game": -0.085946911477589}, {"id": "BAN", "group": 2, "value": 2481.0, "type": "federation", "total_players": 1070, "total_games_played": 20518.0, "total_rating_gained": 14698.0, "total_rating_lost": 17179.0, "net_change": -2481.0, "u19_players": 296, "players_20_38": 319, "players_39_plus": 455, "points_per_game": -0.12091821814991714}, {"id": "BEL", "group": 1, "value": 133.0, "type": "federation", "total_players": 3015, "total_games_played": 57929.0, "total_rating_gained": 49741.0, "total_rating_lost": 49608.0, "net_change": 133.0, "u19_players": 498, "players_20_38": 928, "players_39_plus": 1589, "points_per_game": 0.0022959139636451516}, {"id": "BRA", "group": 1, "value": 2274.0, "type": "federation", "total_players": 3021, "total_games_played": 47133.0, "total_rating_gained": 46552.0, "total_rating_lost": 44278.0, "net_change": 2274.0, "u19_players": 930, "players_20_38": 1067, "players_39_plus": 1024, "points_per_game": 0.048246451530774614}, {"id": "CAN", "group": 1, "value": 8902.0, "type": "federation", "total_players": 1436, "total_games_played": 32390.0, "total_rating_gained": 34497.0, "total_rating_lost": 25595.0, "net_change": 8902.0, "u19_players": 566, "players_20_38": 515, "players_39_plus": 355, "points_per_game": 0.2748379129360914}, {"id": "CHI", "group": 1, "value": 5781.0, "type": "federation", "total_players": 1355, "total_games_played": 30050.0, "total_rating_gained": 30872.0, "total_rating_lost": 25091.0, "net_change": 5781.0, "u19_players": 584, "players_20_38": 435, "players_39_plus": 336, "points_per_game": 0.19237936772046588}, {"id": "CHN", "group": 1, "value": 28662.0, "type": "federation", "total_players": 1429, "total_games_played": 26973.0, "total_rating_gained": 41188.0, "total_rating_lost": 12526.0, "net_change": 28662.0, "u19_players": 1049, "players_20_38": 318, "players_39_plus": 62, "points_per_game": 1.0626181737292848}, {"id": "COL", "group": 1, "value": 7032.0, "type": "federation", "total_players": 1751, "total_games_played": 36862.0, "total_rating_gained": 38409.0, "total_rating_lost": 31377.0, "net_change": 7032.0, "u19_players": 620, "players_20_38": 646, "players_39_plus": 485, "points_per_game": 0.19076555802723671}, {"id": "CRO", "group": 1, "value": 7919.0, "type": "federation", "total_players": 2565, "total_games_played": 44275.0, "total_rating_gained": 46001.0, "total_rating_lost": 38082.0, "net_change": 7919.0, "u19_players": 587, "players_20_38": 608, "players_39_plus": 1370, "points_per_game": 0.17885940146809712}, {"id": "CZE", "group": 1, "value": 7711.0, "type": "federation", "total_players": 5972, "total_games_played": 112106.0, "total_rating_gained": 96482.0, "total_rating_lost": 88771.0, "net_change": 7711.0, "u19_players": 1155, "players_20_38": 1398, "players_39_plus": 3419, "points_per_game": 0.06878311597951939}, {"id": "DEN", "group": 2, "value": 4521.0, "type": "federation", "total_players": 2845, "total_games_played": 57035.0, "total_rating_gained": 39362.0, "total_rating_lost": 43883.0, "net_change": -4521.0, "u19_players": 206, "players_20_38": 461, "players_39_plus": 2178, "points_per_game": -0.07926711668273867}, {"id": "EGY", "group": 1, "value": 4445.0, "type": "federation", "total_players": 1339, "total_games_played": 21018.0, "total_rating_gained": 22642.0, "total_rating_lost": 18197.0, "net_change": 4445.0, "u19_players": 534, "players_20_38": 367, "players_39_plus": 438, "points_per_game": 0.21148539347226186}, {"id": "ENG", "group": 1, "value": 11424.0, "type": "federation", "total_players": 2488, "total_games_played": 48529.0, "total_rating_gained": 50386.0, "total_rating_lost": 38962.0, "net_change": 11424.0, "u19_players": 569, "players_20_38": 633, "players_39_plus": 1286, "points_per_game": 0.23540563374477116}, {"id": "ESP", "group": 1, "value": 41169.0, "type": "federation", "total_players": 19743, "total_games_played": 372014.0, "total_rating_gained": 347636.0, "total_rating_lost": 306467.0, "net_change": 41169.0, "u19_players": 4035, "players_20_38": 4726, "players_39_plus": 10982, "points_per_game": 0.11066519001973044}, {"id": "FRA", "group": 1, "value": 99713.0, "type": "federation", "total_players": 17497, "total_games_played": 333793.0, "total_rating_gained": 387486.0, "total_rating_lost": 287773.0, "net_change": 99713.0, "u19_players": 4797, "players_20_38": 4477, "players_39_plus": 8223, "points_per_game": 0.29872705539061634}, {"id": "GER", "group": 1, "value": 1105.0, "type": "federation", "total_players": 14181, "total_games_played": 240462.0, "total_rating_gained": 221706.0, "total_rating_lost": 220601.0, "net_change": 1105.0, "u19_players": 2401, "players_20_38": 4181, "players_39_plus": 7599, "points_per_game": 0.004595320674368507}, {"id": "GRE", "group": 1, "value": 30641.0, "type": "federation", "total_players": 3283, "total_games_played": 59460.0, "total_rating_gained": 76038.0, "total_rating_lost": 45397.0, "net_change": 30641.0, "u19_players": 1078, "players_20_38": 1200, "players_39_plus": 1005, "points_per_game": 0.5153212243525059}, {"id": "HUN", "group": 1, "value": 3046.0, "type": "federation", "total_players": 3453, "total_games_played": 72364.0, "total_rating_gained": 56077.0, "total_rating_lost": 53031.0, "net_change": 3046.0, "u19_players": 647, "players_20_38": 978, "players_39_plus": 1828, "points_per_game": 0.04209275330274722}, {"id": "IND", "group": 1, "value": 268358.0, "type": "federation", "total_players": 17410, "total_games_played": 384706.0, "total_rating_gained": 498778.0, "total_rating_lost": 230420.0, "net_change": 268358.0, "u19_players": 10529, "players_20_38": 4541, "players_39_plus": 2340, "points_per_game": 0.6975664533435922}, {"id": "IRI", "group": 1, "value": 37035.0, "type": "federation", "total_players": 4601, "total_games_played": 84705.0, "total_rating_gained": 101763.0, "total_rating_lost": 64728.0, "net_change": 37035.0, "u19_players": 2265, "players_20_38": 1183, "players_39_plus": 1153, "points_per_game": 0.4372233044094209}, {"id": "ISR", "group": 1, "value": 16061.0, "type": "federation", "total_players": 2083, "total_games_played": 43066.0, "total_rating_gained": 49779.0, "total_rating_lost": 33718.0, "net_change": 16061.0, "u19_players": 582, "players_20_38": 547, "players_39_plus": 954, "points_per_game": 0.3729392095852877}, {"id": "ITA", "group": 1, "value": 22770.0, "type": "federation", "total_players": 7457, "total_games_played": 141499.0, "total_rating_gained": 148707.0, "total_rating_lost": 125937.0, "net_change": 22770.0, "u19_players": 1626, "players_20_38": 2282, "players_39_plus": 3549, "points_per_game": 0.16091986515805765}, {"id": "KAZ", "group": 1, "value": 42827.0, "type": "federation", "total_players": 2218, "total_games_played": 63358.0, "total_rating_gained": 78597.0, "total_rating_lost": 35770.0, "net_change": 42827.0, "u19_players": 1589, "players_20_38": 286, "players_39_plus": 343, "points_per_game": 0.6759525237539064}, {"id": "MAS", "group": 1, "value": 13191.0, "type": "federation", "total_players": 1174, "total_games_played": 19588.0, "total_rating_gained": 28603.0, "total_rating_lost": 15412.0, "net_change": 13191.0, "u19_players": 727, "players_20_38": 307, "players_39_plus": 140, "points_per_game": 0.6734225035736165}, {"id": "MEX", "group": 1, "value": 8542.0, "type": "federation", "total_players": 2464, "total_games_played": 37491.0, "total_rating_gained": 49843.0, "total_rating_lost": 41301.0, "net_change": 8542.0, "u19_players": 926, "players_20_38": 1076, "players_39_plus": 462, "points_per_game": 0.22784134859032834}, {"id": "NED", "group": 2, "value": 2246.0, "type": "federation", "total_players": 4348, "total_games_played": 59554.0, "total_rating_gained": 60812.0, "total_rating_lost": 63058.0, "net_change": -2246.0, "u19_players": 314, "players_20_38": 1173, "players_39_plus": 2861, "points_per_game": -0.03771367162575142}, {"id": "NOR", "group": 1, "value": 10992.0, "type": "federation", "total_players": 2268, "total_games_played": 43265.0, "total_rating_gained": 44597.0, "total_rating_lost": 33605.0, "net_change": 10992.0, "u19_players": 419, "players_20_38": 629, "players_39_plus": 1220, "points_per_game": 0.2540621749682191}, {"id": "PER", "group": 1, "value": 33323.0, "type": "federation", "total_players": 2076, "total_games_played": 45977.0, "total_rating_gained": 63148.0, "total_rating_lost": 29825.0, "net_change": 33323.0, "u19_players": 1398, "players_20_38": 440, "players_39_plus": 238, "points_per_game": 0.7247754311938578}, {"id": "PHI", "group": 1, "value": 9063.0, "type": "federation", "total_players": 1345, "total_games_played": 19288.0, "total_rating_gained": 25833.0, "total_rating_lost": 16770.0, "net_change": 9063.0, "u19_players": 661, "players_20_38": 407, "players_39_plus": 277, "points_per_game": 0.469877644131066}, {"id": "POL", "group": 1, "value": 93708.0, "type": "federation", "total_players": 6677, "total_games_played": 170096.0, "total_rating_gained": 197352.0, "total_rating_lost": 103644.0, "net_change": 93708.0, "u19_players": 2595, "players_20_38": 2081, "players_39_plus": 2001, "points_per_game": 0.550912425924184}, {"id": "POR", "group": 1, "value": 5718.0, "type": "federation", "total_players": 1319, "total_games_played": 23727.0, "total_rating_gained": 24786.0, "total_rating_lost": 19068.0, "net_change": 5718.0, "u19_players": 335, "players_20_38": 465, "players_39_plus": 519, "points_per_game": 0.24099127576179036}, {"id": "ROU", "group": 1, "value": 26424.0, "type": "federation", "total_players": 2271, "total_games_played": 55360.0, "total_rating_gained": 63286.0, "total_rating_lost": 36862.0, "net_change": 26424.0, "u19_players": 1072, "players_20_38": 429, "players_39_plus": 770, "points_per_game": 0.4773121387283237}, {"id": "RSA", "group": 1, "value": 7881.0, "type": "federation", "total_players": 1584, "total_games_played": 27068.0, "total_rating_gained": 35148.0, "total_rating_lost": 27267.0, "net_change": 7881.0, "u19_players": 608, "players_20_38": 753, "players_39_plus": 223, "points_per_game": 0.29115560809812324}, {"id": "RUS", "group": 1, "value": 99055.0, "type": "federation", "total_players": 8355, "total_games_played": 164373.0, "total_rating_gained": 241274.0, "total_rating_lost": 142219.0, "net_change": 99055.0, "u19_players": 5679, "players_20_38": 1222, "players_39_plus": 1454, "points_per_game": 0.6026233018804792}, {"id": "SRB", "group": 2, "value": 14953.0, "type": "federation", "total_players": 3157, "total_games_played": 53974.0, "total_rating_gained": 36910.0, "total_rating_lost": 51863.0, "net_change": -14953.0, "u19_players": 499, "players_20_38": 662, "players_39_plus": 1996, "points_per_game": -0.2770407974209805}, {"id": "SRI", "group": 1, "value": 44838.0, "type": "federation", "total_players": 3015, "total_games_played": 53026.0, "total_rating_gained": 82441.0, "total_rating_lost": 37603.0, "net_change": 44838.0, "u19_players": 2220, "players_20_38": 703, "players_39_plus": 92, "points_per_game": 0.8455851846264096}, {"id": "SUI", "group": 2, "value": 2162.0, "type": "federation", "total_players": 1978, "total_games_played": 30752.0, "total_rating_gained": 28040.0, "total_rating_lost": 30202.0, "net_change": -2162.0, "u19_players": 313, "players_20_38": 480, "players_39_plus": 1185, "points_per_game": -0.07030437044745057}, {"id": "SVK", "group": 1, "value": 2083.0, "type": "federation", "total_players": 3193, "total_games_played": 58869.0, "total_rating_gained": 50545.0, "total_rating_lost": 48462.0, "net_change": 2083.0, "u19_players": 673, "players_20_38": 707, "players_39_plus": 1813, "points_per_game": 0.03538364843975607}, {"id": "SWE", "group": 1, "value": 1388.0, "type": "federation", "total_players": 3087, "total_games_played": 55976.0, "total_rating_gained": 52076.0, "total_rating_lost": 50688.0, "net_change": 1388.0, "u19_players": 417, "players_20_38": 746, "players_39_plus": 1924, "points_per_game": 0.024796341289123912}, {"id": "TUR", "group": 1, "value": 56751.0, "type": "federation", "total_players": 3528, "total_games_played": 68558.0, "total_rating_gained": 110628.0, "total_rating_lost": 53877.0, "net_change": 56751.0, "u19_players": 1829, "players_20_38": 1162, "players_39_plus": 537, "points_per_game": 0.8277808570845124}, {"id": "UKR", "group": 1, "value": 27144.0, "type": "federation", "total_players": 1580, "total_games_played": 37506.0, "total_rating_gained": 53353.0, "total_rating_lost": 26209.0, "net_change": 27144.0, "u19_players": 763, "players_20_38": 399, "players_39_plus": 418, "points_per_game": 0.7237242041273396}, {"id": "USA", "group": 1, "value": 37015.0, "type": "federation", "total_players": 4788, "total_games_played": 116123.0, "total_rating_gained": 121611.0, "total_rating_lost": 84596.0, "net_change": 37015.0, "u19_players": 2026, "players_20_38": 1469, "players_39_plus": 1293, "points_per_game": 0.3187568354245068}, {"id": "VEN", "group": 1, "value": 6082.0, "type": "federation", "total_players": 1022, "total_games_played": 18742.0, "total_rating_gained": 23834.0, "total_rating_lost": 17752.0, "net_change": 6082.0, "u19_players": 437, "players_20_38": 315, "players_39_plus": 270, "points_per_game": 0.32451179169779104}];
         const linksData = [{"source": "FIDE Pool", "target": "ARG", "value": 6263.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "AUS", "value": 9763.0, "type": "extracted"}, {"source": "AUT", "target": "FIDE Pool", "value": 4138.0, "type": "donated"}, {"source": "BAN", "target": "FIDE Pool", "value": 2481.0, "type": "donated"}, {"source": "FIDE Pool", "target": "BEL", "value": 133.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "BRA", "value": 2274.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CAN", "value": 8902.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CHI", "value": 5781.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CHN", "value": 28662.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "COL", "value": 7032.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CRO", "value": 7919.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "CZE", "value": 7711.0, "type": "extracted"}, {"source": "DEN", "target": "FIDE Pool", "value": 4521.0, "type": "donated"}, {"source": "FIDE Pool", "target": "EGY", "value": 4445.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ENG", "value": 11424.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ESP", "value": 41169.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "FRA", "value": 99713.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "GER", "value": 1105.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "GRE", "value": 30641.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "HUN", "value": 3046.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "IND", "value": 268358.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "IRI", "value": 37035.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ISR", "value": 16061.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ITA", "value": 22770.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "KAZ", "value": 42827.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "MAS", "value": 13191.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "MEX", "value": 8542.0, "type": "extracted"}, {"source": "NED", "target": "FIDE Pool", "value": 2246.0, "type": "donated"}, {"source": "FIDE Pool", "target": "NOR", "value": 10992.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "PER", "value": 33323.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "PHI", "value": 9063.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "POL", "value": 93708.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "POR", "value": 5718.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "ROU", "value": 26424.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "RSA", "value": 7881.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "RUS", "value": 99055.0, "type": "extracted"}, {"source": "SRB", "target": "FIDE Pool", "value": 14953.0, "type": "donated"}, {"source": "FIDE Pool", "target": "SRI", "value": 44838.0, "type": "extracted"}, {"source": "SUI", "target": "FIDE Pool", "value": 2162.0, "type": "donated"}, {"source": "FIDE Pool", "target": "SVK", "value": 2083.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "SWE", "value": 1388.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "TUR", "value": 56751.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "UKR", "value": 27144.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "USA", "value": 37015.0, "type": "extracted"}, {"source": "FIDE Pool", "target": "VEN", "value": 6082.0, "type": "extracted"}];
+
+        // Calculate color scale bounds for points per game
+        const pointsPerGameValues = nodesData
+            .filter(function(d) { return d.type === 'federation'; })
+            .map(function(d) { return d.points_per_game; });
+        const minPointsPerGame = Math.min.apply(Math, pointsPerGameValues);
+        const maxPointsPerGame = Math.max.apply(Math, pointsPerGameValues);
+        
+        // Color scale from dark red (losses) to dark green (gains)
+        const colorScale = d3.scaleSequential(d3.interpolateRdYlGn)
+            .domain([minPointsPerGame, maxPointsPerGame]);
 
         const svg = d3.select("#network-graph")
             .attr("viewBox", [0, 0, width, height]);
@@ -125,10 +146,14 @@
             .selectAll("circle")
             .data(nodesData)
             .enter().append("circle")
-            .attr("r", function(d) { return d.type === 'pool' ? 20 : Math.max(5, Math.sqrt(d.value) / 5); }) // Size by value or fixed for pool
+            .attr("r", function(d) { 
+                if (d.type === 'pool') return 25;
+                // Size based on total_players (number of active players)
+                return Math.max(8, Math.sqrt(d.total_players) * 2);
+            })
             .attr("fill", function(d) {
                 if (d.type === 'pool') return '#2196F3'; // Blue for FIDE Pool
-                return d.group === 1 ? '#4CAF50' : '#F44336'; // Green for gainers, Red for losers
+                return colorScale(d.points_per_game); // Color by points per game
             })
             .call(d3.drag()
                 .on("start", dragstarted)
@@ -144,7 +169,10 @@
             .attr("dx", 12)
             .attr("dy", ".35em")
             .text(function(d) { return d.id; })
-            .attr("x", function(d) { return d.x + (d.type === 'pool' ? 25 : Math.max(5, Math.sqrt(d.value) / 5) + 5); }) // Offset label
+            .attr("x", function(d) { 
+                if (d.type === 'pool') return d.x + 30;
+                return d.x + Math.max(8, Math.sqrt(d.total_players || 1) * 2) + 5;
+            })
             .attr("y", function(d) { return d.y; });
 
         // Tooltip
@@ -158,8 +186,17 @@
                 .style("opacity", .9);
             let tooltip_html = "<strong>" + d.id + "</strong><br>";
             if (d.type === 'federation') {
-                const net_change_sign = d.value > 0 ? '+' : '';
-                tooltip_html += "Net Change: " + net_change_sign + d.value.toLocaleString() + " points";
+                tooltip_html += "<br><strong>Age Distribution:</strong><br>";
+                tooltip_html += "• U19 players: " + d.u19_players.toLocaleString() + "<br>";
+                tooltip_html += "• 20-38 players: " + d.players_20_38.toLocaleString() + "<br>";
+                tooltip_html += "• 39+ players: " + d.players_39_plus.toLocaleString() + "<br>";
+                tooltip_html += "<br><strong>Game Statistics:</strong><br>";
+                tooltip_html += "• Total games played: " + d.total_games_played.toLocaleString() + "<br>";
+                tooltip_html += "<br><strong>Rating Changes:</strong><br>";
+                tooltip_html += "• Rating gained: +" + d.total_rating_gained.toLocaleString() + "<br>";
+                tooltip_html += "• Rating lost: -" + d.total_rating_lost.toLocaleString() + "<br>";
+                tooltip_html += "• <strong>NET change: " + (d.net_change >= 0 ? "+" : "") + d.net_change.toLocaleString() + "</strong><br>";
+                tooltip_html += "• Points per game: " + d.points_per_game.toFixed(3);
             } else {
                 tooltip_html += "Central FIDE Rating Pool";
             }
@@ -185,7 +222,10 @@
                 .attr("cy", function(d) { return d.y; });
             
             labels
-                .attr("x", function(d) { return d.x + (d.type === 'pool' ? 25 : Math.max(5, Math.sqrt(d.value) / 5) + 5); })
+                .attr("x", function(d) { 
+                    if (d.type === 'pool') return d.x + 30;
+                    return d.x + Math.max(8, Math.sqrt(d.total_players || 1) * 2) + 5;
+                })
                 .attr("y", function(d) { return d.y; });
         });
 
