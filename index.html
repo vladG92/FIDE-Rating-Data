@@ -16,16 +16,16 @@
         .legend-color-box { width: 20px; height: 20px; border-radius: 4px; margin-right: 8px; }
         .tooltip {
             position: absolute;
-            text-align: left;
-            padding: 12px;
+            text-align: left; /* Changed to left for multi-line tooltip */
+            padding: 12px; /* Increased padding */
             font: 12px Inter;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid #ddd;
+            background: rgba(255, 255, 255, 0.95); /* Semi-transparent white */
+            border: 1px solid #ddd; /* Light border */
             border-radius: 8px;
             pointer-events: none;
             opacity: 0;
             color: #333;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Softer shadow */
             max-width: 300px;
         }
         .links line {
@@ -34,7 +34,7 @@
         }
         .nodes circle {
             stroke: #fff;
-            stroke-width: 2px;
+            stroke-width: 2px; /* Thicker stroke for nodes */
         }
         text {
             font-size: 10px;
@@ -42,20 +42,23 @@
             pointer-events: none;
             font-weight: 500;
         }
-        .pool-node { fill: #2196F3; }
-        .gain-link { stroke: #4CAF50; }
-        .loss-link { stroke: #F44336; }
+        .pool-node { fill: #2196F3; /* Blue */ }
+        .gain-link { stroke: #4CAF50; /* Green */ }
+        .loss-link { stroke: #F44336; /* Red */ }
         .color-legend {
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 1rem 0;
             gap: 1rem;
+            font-size: 0.875rem;
+            color: #555;
         }
         .color-scale {
             width: 200px;
             height: 20px;
-            background: linear-gradient(to right, #8B0000, #FF0000, #FFA500, #FFFF00, #90EE90, #008000, #006400);
+            /* Using RdYlGn for continuous spectrum */
+            background: linear-gradient(to right, #D73027, #FC8D59, #FEE08B, #FFFFBF, #D9EF8B, #A6D96A, #66BD63, #1A9850); /* Dark Red to Dark Green */
             border-radius: 10px;
             border: 1px solid #ccc;
         }
@@ -64,18 +67,19 @@
 <body class="bg-gray-100 p-4">
     <div class="container">
         <h1>FIDE Rating Point Flow Across Federations</h1>
-        <p>Node size represents number of active players. Color intensity shows rating points gained/lost per game played.</p>
+        <p>Node size represents the number of active players. Color intensity shows rating points gained/lost per game played.</p>
         <p>Drag nodes to rearrange. Zoom and pan using mouse wheel/drag. Hover for detailed statistics.</p>
         <div class="color-legend">
-            <span>Big Losses</span>
+            <span>More Points Lost Per Game</span>
             <div class="color-scale"></div>
-            <span>Big Gains</span>
+            <span>More Points Gained Per Game</span>
         </div>
         <div class="flex justify-center gap-6 mt-4 mb-6">
             <div class="legend-item">
                 <div class="legend-color-box pool-node"></div>
                 <span>FIDE Rating Pool</span>
             </div>
+            <!-- The gain-node and loss-node legends are removed as color is now continuous based on points_per_game -->
         </div>
         <svg id="network-graph" width="100%" height="600"></svg>
     </div>
@@ -91,12 +95,17 @@
         const pointsPerGameValues = nodesData
             .filter(function(d) { return d.type === 'federation'; })
             .map(function(d) { return d.points_per_game; });
-        const minPointsPerGame = Math.min.apply(Math, pointsPerGameValues);
-        const maxPointsPerGame = Math.max.apply(Math, pointsPerGameValues);
         
+        // Handle cases where there might be no federation nodes or all pointsPerGame are the same
+        const minPointsPerGame = pointsPerGameValues.length > 0 ? Math.min.apply(Math, pointsPerGameValues) : -1;
+        const maxPointsPerGame = pointsPerGameValues.length > 0 ? Math.max.apply(Math, pointsPerGameValues) : 1;
+        
+        // Ensure domain has a range, avoid division by zero if min === max
+        const domainRange = maxPointsPerGame - minPointsPerGame === 0 ? [minPointsPerGame - 0.1, maxPointsPerGame + 0.1] : [minPointsPerGame, maxPointsPerGame];
+
         // Color scale from dark red (losses) to dark green (gains)
         const colorScale = d3.scaleSequential(d3.interpolateRdYlGn)
-            .domain([minPointsPerGame, maxPointsPerGame]);
+            .domain(domainRange);
 
         const svg = d3.select("#network-graph")
             .attr("viewBox", [0, 0, width, height]);
@@ -112,10 +121,14 @@
         const g = svg.append("g"); // Group for all graph elements to apply zoom/pan
 
         const simulation = d3.forceSimulation(nodesData)
-            .force("link", d3.forceLink(linksData).id(function(d) { return d.id; }).distance(150))
-            .force("charge", d3.forceManyBody().strength(-300))
+            .force("link", d3.forceLink(linksData).id(function(d) { return d.id; }).distance(200)) // Increased link distance
+            .force("charge", d3.forceManyBody().strength(-800)) // Increased repulsion for better separation
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collision", d3.forceCollide().radius(function(d) { return d.radius + 5; })); // Prevent node overlap
+            .force("collision", d3.forceCollide().radius(function(d) {
+                // Increased collision radius for more space around nodes
+                if (d.type === 'pool') return 30; // Larger radius for pool
+                return Math.max(8, Math.sqrt(d.total_players || 1) * 2) + 10;
+            )); 
 
         // Arrowhead definition
         svg.append("defs").selectAll("marker")
@@ -147,9 +160,9 @@
             .data(nodesData)
             .enter().append("circle")
             .attr("r", function(d) { 
-                if (d.type === 'pool') return 25;
+                if (d.type === 'pool') return 25; // Fixed size for FIDE Pool node, slightly larger
                 // Size based on total_players (number of active players)
-                return Math.max(8, Math.sqrt(d.total_players) * 2);
+                return Math.max(8, Math.sqrt(d.total_players || 1) * 2); // Minimum radius 8, scale by sqrt of players
             })
             .attr("fill", function(d) {
                 if (d.type === 'pool') return '#2196F3'; // Blue for FIDE Pool
@@ -170,8 +183,8 @@
             .attr("dy", ".35em")
             .text(function(d) { return d.id; })
             .attr("x", function(d) { 
-                if (d.type === 'pool') return d.x + 30;
-                return d.x + Math.max(8, Math.sqrt(d.total_players || 1) * 2) + 5;
+                if (d.type === 'pool') return d.x + 30; // Offset label for pool node
+                return d.x + Math.max(8, Math.sqrt(d.total_players || 1) * 2) + 5; // Offset label based on node radius
             })
             .attr("y", function(d) { return d.y; });
 
@@ -186,15 +199,16 @@
                 .style("opacity", .9);
             let tooltip_html = "<strong>" + d.id + "</strong><br>";
             if (d.type === 'federation') {
-                tooltip_html += "<br><strong>Age Distribution:</strong><br>";
+                tooltip_html += "<br><strong>Player Distribution:</strong><br>";
+                tooltip_html += "• Total players: " + d.total_players.toLocaleString() + "<br>";
                 tooltip_html += "• U19 players: " + d.u19_players.toLocaleString() + "<br>";
                 tooltip_html += "• 20-38 players: " + d.players_20_38.toLocaleString() + "<br>";
                 tooltip_html += "• 39+ players: " + d.players_39_plus.toLocaleString() + "<br>";
                 tooltip_html += "<br><strong>Game Statistics:</strong><br>";
                 tooltip_html += "• Total games played: " + d.total_games_played.toLocaleString() + "<br>";
                 tooltip_html += "<br><strong>Rating Changes:</strong><br>";
-                tooltip_html += "• Rating gained: +" + d.total_rating_gained.toLocaleString() + "<br>";
-                tooltip_html += "• Rating lost: -" + d.total_rating_lost.toLocaleString() + "<br>";
+                tooltip_html += "• Total gained: +" + d.total_rating_gained.toLocaleString() + "<br>";
+                tooltip_html += "• Total lost: -" + d.total_rating_lost.toLocaleString() + "<br>";
                 tooltip_html += "• <strong>NET change: " + (d.net_change >= 0 ? "+" : "") + d.net_change.toLocaleString() + "</strong><br>";
                 tooltip_html += "• Points per game: " + d.points_per_game.toFixed(3);
             } else {
